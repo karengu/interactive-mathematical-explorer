@@ -3,7 +3,7 @@ import React from "react";
 import {
     ComplexCoordinate,
     GridValues,
-    LOWER_LIMIT,
+    LOWER_LIMIT, LRUCache,
     range,
     roundNumber,
     STEP_SIZE,
@@ -12,11 +12,20 @@ import {
 
 
 interface GridVisualizationProps {
+    magnitudeCache: LRUCache<number>;
     values: GridValues;
 }
 
 // TODO: Show coordinate values on hover
 // TODO: Move calculations here and calculate on window change
+
+function getMagnitude(coord: ComplexCoordinate, cache: LRUCache<number>) {
+    const cacheResult = cache.getValue(coord.toString())
+    if (!cacheResult) {
+        cache.setValue(coord.toString(), coord.magnitude());
+    }
+    return cache.getValue(coord.toString())!;
+}
 
 export default function GridVisualization(props: GridVisualizationProps) {
     return (
@@ -31,7 +40,8 @@ export default function GridVisualization(props: GridVisualizationProps) {
                     const xCoord = roundNumber(xCoordUnrounded)
                 const coordKey = `${xCoord},${yCoord}`;
                     const initialCoord = new ComplexCoordinate(xCoord, yCoord);
-                const isGrowing = props.values.get(yCoord)!.get(xCoord)!.magnitude() > initialCoord.magnitude();
+                    const currentCoord = props.values.get(yCoord)!.get(xCoord)!
+                const isGrowing = getMagnitude(currentCoord, props.magnitudeCache) > getMagnitude(initialCoord, props.magnitudeCache);
                     return (
                     <div
                         key={coordKey}

@@ -4,7 +4,7 @@ import GridVisualization from "@/app/GridVisualization";
 import {
     ComplexCoordinate,
     GridValues,
-    LOWER_LIMIT,
+    LOWER_LIMIT, LRUCache,
     range,
     roundNumber,
     STEP_SIZE,
@@ -14,50 +14,7 @@ import {useRef, useState} from "react";
 
 const INITIAL_NUM_ITERATIONS = 2; // number of iterations after which to collect the magnitude
 
-class LRUCache {
-    map: Map<string, ComplexCoordinate>
-    capacity: number;
-    keys: Array<string>;
-    cacheMisses: number;
-    cacheHits: number;
-
-    constructor(capacity: number) {
-        this.capacity = capacity;
-        this.map = new Map();
-        this.keys = [];
-        this.cacheMisses = 0;
-        this.cacheHits = 0;
-    }
-    setValue(input: string, value: ComplexCoordinate) {
-        if (this.map.has(input)) {
-            this.keys = this.keys.filter(k => k !== input);
-        }
-
-        this.keys.push(input);
-        this.map.set(input, value);
-        this.map.set(input, value);
-        if (this.map.size > this.capacity) {
-            const oldestKey = this.keys.shift();
-            if (oldestKey != null) {
-                this.map.delete(oldestKey);
-            }
-        }
-    }
-    getValue(input: string) {
-        if (!this.map.has(input)) {
-            this.cacheMisses += 1
-            return null;
-        }
-        this.cacheHits += 1
-
-        const value = this.map.get(input);
-        this.keys = this.keys.filter(k => k !== input);
-        this.keys.push(input);
-        return value;
-    }
-}
-
-function updateValue(currentCoord: ComplexCoordinate, initialCoord: ComplexCoordinate, squareCache: LRUCache): ComplexCoordinate {
+function updateValue(currentCoord: ComplexCoordinate, initialCoord: ComplexCoordinate, squareCache: LRUCache<ComplexCoordinate>): ComplexCoordinate {
     if (!currentCoord) {
         console.log('undefined coord')
     }
@@ -71,7 +28,7 @@ function updateValue(currentCoord: ComplexCoordinate, initialCoord: ComplexCoord
 }
 
 
-function getValue(initialCoord: ComplexCoordinate, iteration: number, squareCache: LRUCache): ComplexCoordinate {
+function getValue(initialCoord: ComplexCoordinate, iteration: number, squareCache: LRUCache<ComplexCoordinate>): ComplexCoordinate {
     if (iteration === 0) {
         return new ComplexCoordinate(0, 0)
     }
@@ -82,7 +39,7 @@ function getValue(initialCoord: ComplexCoordinate, iteration: number, squareCach
     return out;
 }
 
-function constructMap(numIterations: number, squareCache: LRUCache): GridValues {
+function constructMap(numIterations: number, squareCache: LRUCache<ComplexCoordinate>): GridValues {
     const result = new Map();
     range(LOWER_LIMIT, UPPER_LIMIT, STEP_SIZE).forEach((yCoordUnrounded) => {
         const yCoord = roundNumber(yCoordUnrounded)
@@ -95,12 +52,10 @@ function constructMap(numIterations: number, squareCache: LRUCache): GridValues 
         })
         result.set(yCoord, rowValues)
     })
-    console.log('cache hit rate') // should be > 50% (since when we get a miss we read back from the cache)
-    console.log(squareCache.cacheHits / (squareCache.cacheHits + squareCache.cacheMisses))
     return result;
 }
 
-function updateMap(currentMap: GridValues, squareCache: LRUCache) {
+function updateMap(currentMap: GridValues, squareCache: LRUCache<ComplexCoordinate>) {
     range(LOWER_LIMIT, UPPER_LIMIT, STEP_SIZE).forEach((yCoordUnrounded) => {
         const yCoord = roundNumber(yCoordUnrounded)
         const rowValues = currentMap.get(yCoord)!;
@@ -110,9 +65,12 @@ function updateMap(currentMap: GridValues, squareCache: LRUCache) {
             rowValues.set(xCoord, updatedValue)
         })
     })
+    console.log('updating: cache hit rate') // should be > 50% (since when we get a miss we read back from the cache)
+    console.log(squareCache.cacheHits / (squareCache.cacheHits + squareCache.cacheMisses))
 }
 
-const squareCache = new LRUCache(1000);
+const squareCache = new LRUCache<ComplexCoordinate>(1);
+const magnitudeCache = new LRUCache<number>(10000);
 
 export default function Home() {
     const [currentIterations, setCurrentIterations] = useState<number>(INITIAL_NUM_ITERATIONS);
@@ -125,7 +83,7 @@ export default function Home() {
               setCurrentIterations(currentIterations + 1);
               updateMap(mapRef.current, squareCache);
           }}>Increment iterations</button>
-        <GridVisualization values={mapRef.current}/>
+        <GridVisualization values={mapRef.current} magnitudeCache={magnitudeCache}/>
       </main>
     </div>
   );

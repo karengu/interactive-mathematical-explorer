@@ -37,13 +37,56 @@ export class ComplexCoordinate {
   }
 }
 
+export class LRUCache<CacheValue> {
+    map: Map<string, CacheValue>
+    capacity: number;
+    keys: Array<string>;
+    cacheMisses: number;
+    cacheHits: number;
+
+    constructor(capacity: number) {
+        this.capacity = capacity;
+        this.map = new Map();
+        this.keys = [];
+        this.cacheMisses = 0;
+        this.cacheHits = 0;
+    }
+    setValue(input: string, value: CacheValue) {
+        if (this.map.has(input)) {
+            this.keys = this.keys.filter(k => k !== input);
+        }
+
+        this.keys.push(input);
+        this.map.set(input, value);
+        this.map.set(input, value);
+        if (this.map.size > this.capacity) {
+            const oldestKey = this.keys.shift();
+            if (oldestKey != null) {
+                this.map.delete(oldestKey);
+            }
+        }
+    }
+    getValue(input: string) {
+        if (!this.map.has(input)) {
+            this.cacheMisses += 1
+            return null;
+        }
+        this.cacheHits += 1
+
+        const value = this.map.get(input);
+        this.keys = this.keys.filter(k => k !== input);
+        this.keys.push(input);
+        return value;
+    }
+}
+
 export type GridValues = Map<number, Map<number, ComplexCoordinate>> // map of rows; Map.get(yCoord) = row
 
 export const LOWER_LIMIT = -2;
 export const UPPER_LIMIT = 2;
-export const STEP_SIZE = .1;
+export const STEP_SIZE = .01;
 
-export const roundNumber = (n: number): number => Number(n.toFixed(10));
+export const roundNumber = (n: number): number => Number(n.toFixed(2));
 
 export const range = (start: number, stop: number, step: number = 1) =>
   Array.from({ length: (stop - start) / step + 1 }, (_, i) => start + i * step);
